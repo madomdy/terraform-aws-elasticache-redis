@@ -60,7 +60,6 @@ resource "aws_elasticache_parameter_group" "default" {
 
 locals {
   with_auth    = "${var.enabled && var.auth_token != "" }"
-  without_auth = "${var.enabled && var.auth_token == "" }"
 }
 
 resource "aws_elasticache_replication_group" "default" {
@@ -88,24 +87,25 @@ resource "aws_elasticache_replication_group" "default" {
 
 
 resource "aws_elasticache_replication_group" "noauth" {
-  count = "${local.without_auth == "true" ? 1 : 0}"
-  replication_group_id          = "${var.replication_group_id == "" ? module.label.id : var.replication_group_id}"
-  replication_group_description = "${module.label.id}"
-  node_type                     = "${var.instance_type}"
-  number_cache_clusters         = "${var.cluster_size}"
-  port                          = "${var.port}"
-  parameter_group_name          = "${aws_elasticache_parameter_group.default.name}"
-  availability_zones            = ["${slice(var.availability_zones, 0, var.cluster_size)}"]
-  automatic_failover_enabled    = "${var.automatic_failover}"
-  subnet_group_name             = "${local.elasticache_subnet_group_name}"
-  security_group_ids            = ["${aws_security_group.default.id}"]
-  maintenance_window            = "${var.maintenance_window}"
-  notification_topic_arn        = "${var.notification_topic_arn}"
-  engine_version                = "${var.engine_version}"
-  at_rest_encryption_enabled    = "${var.at_rest_encryption_enabled}"
-  transit_encryption_enabled    = "${var.transit_encryption_enabled}"
+  count = local.with_auth ? 0 : 1
 
-  tags = "${module.label.tags}"
+  replication_group_id          = var.replication_group_id == "" ? module.label.id : var.replication_group_id
+  replication_group_description = module.label.id
+  node_type                     = var.instance_type
+  number_cache_clusters         = var.cluster_size
+  port                          = var.port
+  parameter_group_name          = join("", aws_elasticache_parameter_group.default.*.name)
+  availability_zones            = slice(var.availability_zones, 0, var.cluster_size)
+  automatic_failover_enabled    = var.automatic_failover
+  subnet_group_name             = local.elasticache_subnet_group_name
+  security_group_ids            = [join("", aws_security_group.default.*.id)]
+  maintenance_window            = var.maintenance_window
+  notification_topic_arn        = var.notification_topic_arn
+  engine_version                = var.engine_version
+  at_rest_encryption_enabled    = false
+  transit_encryption_enabled    = false
+
+  tags = module.label.tags
 }
 
 #
